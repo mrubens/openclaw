@@ -88,7 +88,7 @@ runs:
 
     - name: Resolve pnpm store path
       id: pnpm-store
-      if: ${{ inputs.use-actions-cache == 'true' && runner.os != 'Windows' }}
+      if: ${{ inputs.use-actions-cache == 'true' }}
       shell: bash
       run: |
         set -euo pipefail
@@ -98,7 +98,7 @@ runs:
 
     - name: Restore pnpm store cache
       id: pnpm-store-cache
-      if: ${{ inputs.use-actions-cache == 'true' && runner.os != 'Windows' }}
+      if: ${{ inputs.use-actions-cache == 'true' }}
       uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
       with:
         path: ${{ steps.pnpm-store.outputs.path }}
