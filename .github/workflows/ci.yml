@@ -2880,6 +2880,7 @@ jobs:
           openclaw_ensure_node "$REQUESTED_NODE_VERSION"
 
       - name: Setup pnpm
+        id: setup_pnpm
         uses: ./.github/actions/setup-pnpm-store-cache
         with:
           node-version: 22.x
@@ -2909,6 +2910,13 @@ jobs:
           # Persist Windows-native postinstall outputs in the pnpm store so restored
           # caches can skip repeated rebuild/download work on later shards/runs.
           pnpm install --frozen-lockfile --prefer-offline --ignore-scripts=false --config.engine-strict=false --config.enable-pre-post-scripts=true --config.side-effects-cache=true || pnpm install --frozen-lockfile --prefer-offline --ignore-scripts=false --config.engine-strict=false --config.enable-pre-post-scripts=true --config.side-effects-cache=true
+
+      - name: Save pnpm store cache
+        if: steps.setup_pnpm.outputs.store-cache-hit != 'true'
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ steps.setup_pnpm.outputs.store-path }}
+          key: ${{ steps.setup_pnpm.outputs.store-cache-primary-key }}
 
       - name: Run ${{ matrix.task }} (${{ matrix.runtime }})
         env:
@@ -2946,6 +2954,7 @@ jobs:
         uses: ./.github/actions/setup-node-env
         with:
           install-bun: "false"
+          save-actions-cache: "true"
 
       - name: TS tests (macOS)
         env:

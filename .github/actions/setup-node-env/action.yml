@@ -487,7 +487,7 @@ runs:
           ${{ github.repository }}-build-all-v1-${{ inputs.build-all-cache-scope }}-${{ runner.os }}-${{ runner.arch }}-node-${{ inputs.node-version }}-
 
     - name: Save pnpm store cache
-      if: ${{ inputs.install-deps == 'true' && inputs.use-actions-cache == 'true' && inputs.save-actions-cache == 'true' && runner.os != 'Windows' && steps.setup-pnpm.outputs.store-cache-hit != 'true' }}
+      if: ${{ inputs.install-deps == 'true' && inputs.use-actions-cache == 'true' && inputs.save-actions-cache == 'true' && steps.setup-pnpm.outputs.store-cache-hit != 'true' }}
       uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
       with:
         path: ${{ steps.setup-pnpm.outputs.store-path }}
