@@ -20,6 +20,27 @@ import {
 
 const suite = createSessionManagementE2eSuite();
 
+async function waitForSessionsListToSettle(
+  gateway: Awaited<ReturnType<typeof installMockGateway>>,
+): Promise<number> {
+  let count = (await gateway.getRequests("sessions.list")).length;
+  let lastChangeAt = Date.now();
+  const deadline = lastChangeAt + 10_000;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => {
+      setTimeout(resolve, 50);
+    });
+    const nextCount = (await gateway.getRequests("sessions.list")).length;
+    if (nextCount !== count) {
+      count = nextCount;
+      lastChangeAt = Date.now();
+    } else if (Date.now() - lastChangeAt >= 500) {
+      return count;
+    }
+  }
+  throw new Error("Timed out waiting for startup sessions.list requests to settle");
+}
+
 suite.define(() => {
   it("expands child sessions inline and opens a child chat", async () => {
     const baseTime = Date.parse("2026-07-01T16:00:00.000Z");
@@ -283,7 +304,9 @@ suite.define(() => {
       await sidebarRow.waitFor({ state: "visible", timeout: 10_000 });
       const sidebarRows = page.locator(".sidebar-recent-session");
       await expect.poll(() => sidebarRows.count()).toBe(3);
-      const initialListCount = (await gateway.getRequests("sessions.list")).length;
+      // Let startup list work finish before deferring the reconnect request.
+      // Otherwise a late pre-disconnect request can consume the deferred slot.
+      const initialListCount = await waitForSessionsListToSettle(gateway);
 
       await gateway.closeLatest(1006, "disconnect proof");
       await gateway.deferNext("sessions.list");
