@@ -2046,12 +2046,12 @@ describe("ci workflow guards", () => {
     expect(source).not.toContain("blacksmith-");
   });
 
-  it("keeps security checks hosted and the cache writer on Blacksmith", () => {
+  it("keeps security checks and cache warmup hosted", () => {
     const workflow = readCiWorkflow();
 
     expect(workflow.jobs.preflight["runs-on"]).toContain("blacksmith-4vcpu-ubuntu-2404");
     expect(workflow.jobs["security-fast"]["runs-on"]).toBe("ubuntu-24.04");
-    expect(workflow.jobs["pnpm-store-warmup"]["runs-on"]).toContain("blacksmith-4vcpu-ubuntu-2404");
+    expect(workflow.jobs["pnpm-store-warmup"]["runs-on"]).toBe("ubuntu-24.04");
   });
 
   it("scans only the pull request commit range for leaked credentials", () => {
@@ -2163,10 +2163,15 @@ describe("ci workflow guards", () => {
     expect(maintainStep.run).toContain('store_dir="${PNPM_CONFIG_STORE_DIR:?}"');
     expect(maintainStep.run).toContain('PNPM_CONFIG_STORE_DIR="$store_dir" pnpm store prune');
     expect(maintainStep.run).toContain('>> "$GITHUB_STEP_SUMMARY"');
-    expect(workflow.jobs["pnpm-store-warmup"].if).toContain("github.ref == 'refs/heads/main'");
-    expect(workflow.jobs["pnpm-store-warmup"].if).toContain(
-      "github.repository == 'openclaw/openclaw'",
+    const warmupCondition = workflow.jobs["pnpm-store-warmup"].if;
+    expect(warmupCondition).toContain("github.event_name == 'workflow_dispatch'");
+    expect(warmupCondition).toContain(
+      "github.event_name == 'pull_request' && (github.repository != 'openclaw/openclaw'",
     );
+    expect(warmupCondition).toContain(
+      "github.event.pull_request.head.repo.full_name != 'openclaw/openclaw'",
+    );
+    expect(warmupCondition).not.toContain("github.event_name == 'push'");
     // Current sticky consumers all use the single supported Node line. A
     // planner-provided version would silently create a writerless disk.
     for (const { jobName, stepWith } of stickyConsumers) {

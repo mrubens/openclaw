@@ -985,14 +985,15 @@ jobs:
       - name: Audit production dependencies
         run: node scripts/pre-commit/pnpm-audit-prod.mjs --audit-level=high
 
-  # Warm the lockfile- and pnpm-pinned Actions cache for PR and manual runs.
-  # Canonical main publishes its sticky snapshot in preflight before fanout.
+  # Fork and manual runs use Actions cache. Trusted same-repository PRs read
+  # the sticky snapshot directly, so skip a redundant cache-warming install.
+  # Canonical main publishes that snapshot in preflight before fanout.
   pnpm-store-warmup:
     permissions:
       contents: read
     needs: [preflight]
-    if: ${{ (needs.preflight.outputs.run_node == 'true' || needs.preflight.outputs.run_check_docs == 'true') && !(github.repository == 'openclaw/openclaw' && github.event_name == 'push' && github.ref == 'refs/heads/main') }}
-    runs-on: ${{ github.event_name == 'workflow_dispatch' && 'ubuntu-24.04' || (github.repository == 'openclaw/openclaw' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'openclaw/openclaw') && 'blacksmith-4vcpu-ubuntu-2404' || 'ubuntu-24.04') }}
+    if: ${{ (needs.preflight.outputs.run_node == 'true' || needs.preflight.outputs.run_check_docs == 'true') && (github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.repository != 'openclaw/openclaw' || github.event.pull_request.head.repo.full_name != 'openclaw/openclaw'))) }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - &linux_node_checkout_step
