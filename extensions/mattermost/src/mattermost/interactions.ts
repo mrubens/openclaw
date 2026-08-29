@@ -103,8 +103,11 @@ function isAllowedInteractionSource(params: {
   allowRealIpFallback?: boolean;
 }): boolean {
   const { allowedSourceIps } = params;
-  if (!allowedSourceIps?.length) {
+  if (allowedSourceIps === undefined) {
     return true;
+  }
+  if (allowedSourceIps.length === 0) {
+    return false;
   }
 
   const clientIp = resolveClientIp({

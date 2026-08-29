@@ -819,6 +819,24 @@ describe("createMattermostInteractionHandler", () => {
     expectForbiddenResponse(res, "Invalid token");
   });
 
+  it("rejects callbacks when no source is allowlisted", async () => {
+    const { context, token } = createActionContext();
+    const handler = createMattermostInteractionHandler({
+      client: createMattermostClientMock(async () => {
+        throw new Error("should not fetch post for rejected origins");
+      }),
+      botUserId: "bot",
+      accountId: "acct",
+      allowedSourceIps: [],
+    });
+
+    const res = await runHandler(handler, {
+      remoteAddress: "127.0.0.1",
+      body: createInteractionBody({ context, token }),
+    });
+    expectForbiddenResponse(res, "Forbidden origin");
+  });
+
   it("rejects requests when the signed channel does not match the callback payload", async () => {
     const { context, token } = createActionContext();
     const handler = createUnusedInteractionHandler();
