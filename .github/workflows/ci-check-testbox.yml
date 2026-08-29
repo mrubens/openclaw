@@ -97,11 +97,15 @@ jobs:
         uses: ./.github/actions/setup-node-env
         with:
           install-bun: "false"
-          install-trufflehog: "true"
+          # Pull requests only validate Testbox checkout and hydration. Skip the
+          # dependency graph and unused scanner binary until a real lease runs.
+          install-deps: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
+          install-trufflehog: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
           # Real Testbox hydration reuses the protected dependency snapshot.
-          # Pull-request validation runs on GitHub-hosted runners instead.
+          # Pull-request validation never consumes the store because it skips
+          # installation, and real Testbox hydration uses the sticky snapshot.
           sticky-disk: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
-          use-actions-cache: ${{ github.event_name == 'workflow_dispatch' && 'false' || 'true' }}
+          use-actions-cache: "false"
       - name: Prepare Testbox shell
         shell: bash
         run: |
