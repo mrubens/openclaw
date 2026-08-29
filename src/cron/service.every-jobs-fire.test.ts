@@ -153,27 +153,30 @@ describe("CronService interval/cron jobs fire on time", () => {
       runIsolatedAgentJob: vi.fn(async () => ({ status: "ok" as const })),
     });
 
-    await cron.start();
-    await cron.add({
-      name: "resume retry check",
-      enabled: true,
-      schedule: { kind: "every", everyMs: 10_000 },
-      sessionTarget: "main",
-      wakeMode: "next-heartbeat",
-      payload: { kind: "systemEvent", text: "resume" },
-    });
-    cron.pauseScheduling();
-    logger.debug.mockImplementationOnce(() => {
-      throw new Error("arm failed");
-    });
+    try {
+      await cron.start();
+      await cron.add({
+        name: "resume retry check",
+        enabled: true,
+        schedule: { kind: "every", everyMs: 10_000 },
+        sessionTarget: "main",
+        wakeMode: "next-heartbeat",
+        payload: { kind: "systemEvent", text: "resume" },
+      });
+      cron.pauseScheduling();
+      const timerCountBeforeResume = vi.getTimerCount();
+      logger.debug.mockImplementationOnce(() => {
+        throw new Error("arm failed");
+      });
 
-    expect(() => cron.resumeScheduling()).toThrow("arm failed");
-    expect(vi.getTimerCount()).toBe(0);
-    expect(() => cron.resumeScheduling()).not.toThrow();
-    expect(vi.getTimerCount()).toBe(1);
-
-    cron.stop();
-    await store.cleanup();
+      expect(() => cron.resumeScheduling()).toThrow("arm failed");
+      expect(vi.getTimerCount()).toBe(timerCountBeforeResume);
+      expect(() => cron.resumeScheduling()).not.toThrow();
+      expect(vi.getTimerCount()).toBe(timerCountBeforeResume + 1);
+    } finally {
+      cron.stop();
+      await store.cleanup();
+    }
   });
 
   it("keeps admission closed until a real cron scheduler resume retry succeeds", async () => {
