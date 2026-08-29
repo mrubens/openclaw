@@ -15,6 +15,7 @@ import {
   shouldSuppressMattermostDefaultToolProgressMessages,
   shouldUpdateMattermostDraftToolProgress,
 } from "./monitor-context.js";
+import { resolveMattermostInteractionAllowedSourceIps } from "./monitor.js";
 import { buildMattermostInboundMediaPayload } from "./monitor-resources.js";
 
 function resolveMattermostEffectiveReplyToId(params: {
@@ -28,6 +29,26 @@ function resolveMattermostEffectiveReplyToId(params: {
     ...params,
   }).effectiveReplyToId;
 }
+
+describe("resolveMattermostInteractionAllowedSourceIps", () => {
+  it("rejects all sources for public callbacks without an explicit allowlist", () => {
+    expect(
+      resolveMattermostInteractionAllowedSourceIps({
+        callbackUsesLoopbackHost: false,
+        configuredSourceIps: [],
+      }),
+    ).toEqual([]);
+  });
+
+  it("keeps loopback defaults for loopback callbacks", () => {
+    expect(
+      resolveMattermostInteractionAllowedSourceIps({
+        callbackUsesLoopbackHost: true,
+        configuredSourceIps: [],
+      }),
+    ).toEqual(["127.0.0.1", "::1"]);
+  });
+});
 
 describe("buildMattermostInboundMediaPayload", () => {
   it("keeps a failed attachment kind aligned with a successful path", async () => {

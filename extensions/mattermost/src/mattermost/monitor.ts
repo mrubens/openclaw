@@ -60,6 +60,16 @@ type MonitorMattermostOpts = {
   webSocketFactory?: MattermostWebSocketFactory;
 };
 
+export function resolveMattermostInteractionAllowedSourceIps(params: {
+  callbackUsesLoopbackHost: boolean;
+  configuredSourceIps: string[];
+}): string[] {
+  if (params.configuredSourceIps.length > 0) {
+    return params.configuredSourceIps;
+  }
+  return params.callbackUsesLoopbackHost ? ["127.0.0.1", "::1"] : [];
+}
+
 export async function monitorMattermostProvider(opts: MonitorMattermostOpts = {}): Promise<void> {
   const core = getMattermostRuntime();
   const runtime =
@@ -147,9 +157,11 @@ export async function monitorMattermostProvider(opts: MonitorMattermostOpts = {}
   const allowedInteractionSourceIps = normalizeTrimmedStringList(
     account.config.interactions?.allowedSourceIps,
   );
+  let callbackUsesLoopbackHost = false;
   try {
     const mmHost = new URL(baseUrl).hostname;
     const callbackHost = new URL(callbackUrl).hostname;
+    callbackUsesLoopbackHost = isLoopbackHost(callbackHost);
     if (isLoopbackHost(callbackHost) && !isLoopbackHost(mmHost)) {
       runtime.error?.(
         `mattermost: interactions callbackUrl resolved to ${callbackUrl} (loopback) while baseUrl is ${baseUrl}. This MAY be unreachable depending on your deployment. If button clicks don't work, set channels.mattermost.interactions.callbackBaseUrl to a URL reachable from the Mattermost server (e.g. your public reverse proxy URL).`,
@@ -215,8 +227,10 @@ export async function monitorMattermostProvider(opts: MonitorMattermostOpts = {}
   const unregisterInteractions = registerMattermostInteractions({
     monitor,
     interactionPath,
-    allowedSourceIps:
-      allowedInteractionSourceIps.length > 0 ? allowedInteractionSourceIps : ["127.0.0.1", "::1"],
+    allowedSourceIps: resolveMattermostInteractionAllowedSourceIps({
+      callbackUsesLoopbackHost,
+      configuredSourceIps: allowedInteractionSourceIps,
+    }),
     handleModelPickerInteraction: createMattermostModelPickerInteractionHandler(monitor),
   });
   const handlePost = createMattermostPostHandler(monitor);
