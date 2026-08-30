@@ -2404,12 +2404,16 @@ describe("package artifact reuse", () => {
     expect(workflow).not.toContain('PNPM_CONFIG_STORE_DIR: "/tmp/openclaw-pnpm-store"');
     expect(workflow).not.toContain("PNPM_CONFIG_MODULES_DIR");
     expect(workflow).not.toContain("PNPM_CONFIG_VIRTUAL_STORE_DIR");
+    expect(setupNodeWith["install-deps"]).toBe(
+      "${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}",
+    );
+    expect(setupNodeWith["install-trufflehog"]).toBe(
+      "${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}",
+    );
     expect(setupNodeWith["sticky-disk"]).toBe(
       "${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}",
     );
-    expect(setupNodeWith["use-actions-cache"]).toBe(
-      "${{ github.event_name == 'workflow_dispatch' && 'false' || 'true' }}",
-    );
+    expect(setupNodeWith["use-actions-cache"]).toBe("false");
     expect(checkTestboxJob["timeout-minutes"]).toBe(
       "${{ fromJSON(inputs.timeout_minutes || '120') }}",
     );

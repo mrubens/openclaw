@@ -32,14 +32,17 @@ describe("scripts/install-trufflehog.sh", () => {
     expect(action).toContain("run: bash scripts/install-trufflehog.sh");
   });
 
-  it("is enabled during every Linux Testbox hydration before handoff", () => {
-    for (const workflow of [
-      ".github/workflows/ci-check-testbox.yml",
-      ".github/workflows/ci-check-arm-testbox.yml",
-      ".github/workflows/ci-build-artifacts-testbox.yml",
+  it("is enabled during every dispatched Linux Testbox hydration before handoff", () => {
+    for (const [workflow, expectedInstall] of [
+      [
+        ".github/workflows/ci-check-testbox.yml",
+        "${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}",
+      ],
+      [".github/workflows/ci-check-arm-testbox.yml", '"true"'],
+      [".github/workflows/ci-build-artifacts-testbox.yml", '"true"'],
     ]) {
       const text = readFileSync(workflow, "utf8");
-      const install = text.indexOf('install-trufflehog: "true"');
+      const install = text.indexOf(`install-trufflehog: ${expectedInstall}`);
       const handoff = text.indexOf("uses: useblacksmith/run-testbox@");
 
       expect(install, `${workflow} must provision TruffleHog`).toBeGreaterThanOrEqual(0);
