@@ -47,6 +47,7 @@ const MATURITY_GENERATED_PR_PATHS = [
 ];
 
 type WorkflowStep = {
+  "continue-on-error"?: boolean;
   env?: Record<string, unknown>;
   id?: string;
   if?: string;
@@ -793,6 +794,71 @@ function runGeneratedPublisherScenario(
 }
 
 describe("ci workflow guards", () => {
+  it("uses optional GitHub App tokens without requiring app secrets", () => {
+    const autoResponse = readWorkflow(".github/workflows/auto-response.yml");
+    const labeler = readWorkflow(".github/workflows/labeler.yml");
+    const jobs = [
+      autoResponse.jobs["auto-response"],
+      labeler.jobs.label,
+      labeler.jobs["backfill-pr-labels"],
+      labeler.jobs["label-issues"],
+    ];
+    const tokenExpression =
+      "${{ steps.app-token.outputs.token || steps.app-token-fallback.outputs.token || github.token }}";
+
+    expect(autoResponse.jobs["auto-response"].permissions).toEqual({
+      contents: "read",
+      issues: "write",
+      "pull-requests": "write",
+    });
+    expect(labeler.jobs.label.permissions).toEqual({
+      contents: "read",
+      "pull-requests": "write",
+    });
+    expect(labeler.jobs["backfill-pr-labels"].permissions).toEqual({
+      contents: "read",
+      "pull-requests": "write",
+    });
+    expect(labeler.jobs["label-issues"].permissions).toEqual({ issues: "write" });
+
+    for (const job of jobs) {
+      expect(job.env).toEqual({
+        HAS_GH_APP_PRIVATE_KEY: "${{ secrets.GH_APP_PRIVATE_KEY != '' }}",
+        HAS_GH_APP_PRIVATE_KEY_FALLBACK: "${{ secrets.GH_APP_PRIVATE_KEY_FALLBACK != '' }}",
+      });
+
+      const steps = job.steps as WorkflowStep[];
+      const primary = expectDefined(
+        steps.find((step) => step.id === "app-token"),
+        "primary app token step",
+      );
+      const fallback = expectDefined(
+        steps.find((step) => step.id === "app-token-fallback"),
+        "fallback app token step",
+      );
+      expect(primary.uses).toBe(CREATE_GITHUB_APP_TOKEN_V3);
+      expect(primary.if).toBe("${{ env.HAS_GH_APP_PRIVATE_KEY == 'true' }}");
+      expect(primary["continue-on-error"]).toBe(true);
+      expect(primary.with?.["app-id"]).toBe("2729701");
+      expect(primary.with?.["private-key"]).toBe("${{ secrets.GH_APP_PRIVATE_KEY }}");
+      expect(fallback.uses).toBe(CREATE_GITHUB_APP_TOKEN_V3);
+      expect(fallback.if).toBe(
+        "${{ env.HAS_GH_APP_PRIVATE_KEY_FALLBACK == 'true' && steps.app-token.outcome != 'success' }}",
+      );
+      expect(fallback.with?.["app-id"]).toBe("2971289");
+      expect(fallback.with?.["private-key"]).toBe("${{ secrets.GH_APP_PRIVATE_KEY_FALLBACK }}");
+
+      const tokenConsumers = steps.filter(
+        (step) =>
+          step.with?.["github-token"] !== undefined || step.with?.["repo-token"] !== undefined,
+      );
+      expect(tokenConsumers.length).toBeGreaterThan(0);
+      for (const step of tokenConsumers) {
+        expect(step.with?.["github-token"] ?? step.with?.["repo-token"]).toBe(tokenExpression);
+      }
+    }
+  });
+
   it("routes PR edited metadata only to interested automation", () => {
     const autoResponse = readWorkflow(".github/workflows/auto-response.yml");
     const clawsweeperDispatch = readWorkflow(".github/workflows/clawsweeper-dispatch.yml");
