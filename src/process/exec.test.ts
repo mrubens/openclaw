@@ -364,8 +364,9 @@ describe("runCommandWithTimeout", () => {
 
     expect(result.termination).toBe("exit");
     expect(result.outputLimitExceeded).toBeUndefined();
-    expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("abcdefgh");
+    // stdout and stderr use independent OS pipes, so their delivery order is not a contract.
+    expect(result.stdout.length + result.stderr.length).toBe(8);
+    expect(`${result.stdout}${result.stderr}`).toMatch(/^(?:xabcdefg|abcdefgh)$/u);
   });
 
   it("terminates commands that exceed a selected stream cap", async () => {
