@@ -34,6 +34,12 @@ async function listen(server: Server): Promise<number> {
   return address.port;
 }
 
+async function closeServer(server: Server): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => (error ? reject(error) : resolve()));
+  });
+}
+
 function runClient(
   port: number | string,
   env: Record<string, string> = {},
@@ -159,7 +165,7 @@ describe("scripts/e2e/lib/openai-chat-tools/client.mjs", () => {
         responseClosed,
       };
     } finally {
-      server.close();
+      await closeServer(server);
     }
   });
 
@@ -337,7 +343,7 @@ describe("scripts/e2e/lib/openai-chat-tools/client.mjs", () => {
         toolName: "get_weather",
       });
     } finally {
-      server.close();
+      await closeServer(server);
     }
   });
 
@@ -353,7 +359,7 @@ describe("scripts/e2e/lib/openai-chat-tools/client.mjs", () => {
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain("expected tool call only response");
     } finally {
-      server.close();
+      await closeServer(server);
     }
   });
 
@@ -377,7 +383,7 @@ describe("scripts/e2e/lib/openai-chat-tools/client.mjs", () => {
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain("chat completions response body exceeded 64 bytes");
     } finally {
-      server.close();
+      await closeServer(server);
     }
   });
 
@@ -399,7 +405,7 @@ describe("scripts/e2e/lib/openai-chat-tools/client.mjs", () => {
       expect(result.stderr).toContain("chat completions response body exceeded 64 bytes");
       expect(Date.now() - startedAt).toBeLessThan(3_500);
     } finally {
-      server.close();
+      await closeServer(server);
     }
   });
 
@@ -422,7 +428,7 @@ describe("scripts/e2e/lib/openai-chat-tools/client.mjs", () => {
       expect(result.stderr).not.toContain("timed out");
       expect(Date.now() - startedAt).toBeLessThan(3_500);
     } finally {
-      server.close();
+      await closeServer(server);
     }
   });
 });

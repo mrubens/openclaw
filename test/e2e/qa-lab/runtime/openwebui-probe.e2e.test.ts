@@ -32,6 +32,12 @@ async function listen(server: HttpServer | TcpServer): Promise<string> {
   return `http://127.0.0.1:${address.port}`;
 }
 
+async function closeServer(server: HttpServer | TcpServer): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => (error ? reject(error) : resolve()));
+  });
+}
+
 function runProbe(baseUrl: string, env: Record<string, string> = {}, timeout = 3_000) {
   return new Promise<ProbeResult>((resolve) => {
     const child = spawn(process.execPath, [probePath], {
@@ -153,7 +159,7 @@ describe("scripts/e2e/openwebui-probe.mjs", () => {
       for (const socket of sockets) {
         socket.destroy();
       }
-      server.close();
+      await closeServer(server);
     }
   });
 
@@ -182,7 +188,7 @@ describe("scripts/e2e/openwebui-probe.mjs", () => {
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain("Open WebUI signin timed out after 25ms");
     } finally {
-      server.close();
+      await closeServer(server);
     }
   });
 
@@ -216,7 +222,7 @@ describe("scripts/e2e/openwebui-probe.mjs", () => {
       expect(result.stderr).toContain("Open WebUI signin response body exceeded 16 bytes");
       expect(result.stderr).not.toContain("x".repeat(64));
     } finally {
-      server.close();
+      await closeServer(server);
     }
   });
 
@@ -248,7 +254,7 @@ describe("scripts/e2e/openwebui-probe.mjs", () => {
       expect(result.stderr).not.toContain('pa"ss');
       expect(result.stderr).not.toContain('pa\\"ss');
     } finally {
-      server.close();
+      await closeServer(server);
     }
   });
 
@@ -282,7 +288,7 @@ describe("scripts/e2e/openwebui-probe.mjs", () => {
       );
       expect(result.stderr).not.toContain("y".repeat(96));
     } finally {
-      server.close();
+      await closeServer(server);
     }
   });
 
@@ -319,7 +325,7 @@ describe("scripts/e2e/openwebui-probe.mjs", () => {
       expect(result.stderr).not.toContain("model-secret-token");
       expect(result.stderr).not.toContain("model=secret=cookie");
     } finally {
-      server.close();
+      await closeServer(server);
     }
   });
 
@@ -355,7 +361,7 @@ describe("scripts/e2e/openwebui-probe.mjs", () => {
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain("openclaw model missing from Open WebUI model list");
     } finally {
-      server.close();
+      await closeServer(server);
     }
   });
 
@@ -394,7 +400,7 @@ describe("scripts/e2e/openwebui-probe.mjs", () => {
         ok: true,
       });
     } finally {
-      server.close();
+      await closeServer(server);
     }
   });
 
@@ -445,7 +451,7 @@ describe("scripts/e2e/openwebui-probe.mjs", () => {
         },
       ]);
     } finally {
-      server.close();
+      await closeServer(server);
     }
   });
 
@@ -491,7 +497,7 @@ describe("scripts/e2e/openwebui-probe.mjs", () => {
       expect(result.stderr).not.toContain("chat=secret=cookie");
       expect(result.stderr).not.toContain("openwebui-session=chat");
     } finally {
-      server.close();
+      await closeServer(server);
     }
   });
 });
