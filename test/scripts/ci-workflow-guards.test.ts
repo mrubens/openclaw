@@ -47,6 +47,7 @@ const MATURITY_GENERATED_PR_PATHS = [
 ];
 
 type WorkflowStep = {
+  "continue-on-error"?: boolean | string;
   env?: Record<string, unknown>;
   id?: string;
   if?: string;
@@ -793,6 +794,50 @@ function runGeneratedPublisherScenario(
 }
 
 describe("ci workflow guards", () => {
+  it("skips PR automation when neither GitHub App key is available", () => {
+    const autoResponse = readWorkflow(".github/workflows/auto-response.yml");
+    const labeler = readWorkflow(".github/workflows/labeler.yml");
+    const tokenCondition =
+      "steps.app-token.outputs.token != '' || steps.app-token-fallback.outputs.token != ''";
+
+    const autoResponseSteps = autoResponse.jobs["auto-response"].steps as WorkflowStep[];
+    const labelSteps = labeler.jobs.label.steps as WorkflowStep[];
+    for (const [job, steps] of [
+      [autoResponse.jobs["auto-response"], autoResponseSteps],
+      [labeler.jobs.label, labelSteps],
+    ]) {
+      expect(job.env).toMatchObject({
+        GH_APP_PRIVATE_KEY: "${{ secrets.GH_APP_PRIVATE_KEY }}",
+        GH_APP_PRIVATE_KEY_FALLBACK: "${{ secrets.GH_APP_PRIVATE_KEY_FALLBACK }}",
+      });
+      expect(steps.find((step) => step.id === "app-token")).toMatchObject({
+        "continue-on-error": "${{ env.GH_APP_PRIVATE_KEY_FALLBACK != '' }}",
+        if: "env.GH_APP_PRIVATE_KEY != ''",
+        with: { "private-key": "${{ env.GH_APP_PRIVATE_KEY }}" },
+      });
+      expect(steps.find((step) => step.id === "app-token-fallback")).toMatchObject({
+        if: "steps.app-token.outputs.token == '' && env.GH_APP_PRIVATE_KEY_FALLBACK != ''",
+        with: { "private-key": "${{ env.GH_APP_PRIVATE_KEY_FALLBACK }}" },
+      });
+    }
+
+    expect(autoResponseSteps.find((step) => step.name === "Run Barnacle auto-response")?.if).toBe(
+      tokenCondition,
+    );
+    for (const step of labelSteps.filter(
+      (step) =>
+        step.uses?.startsWith("actions/labeler@") ||
+        [
+          "Apply PR size label",
+          "Apply maintainer or trusted-contributor label",
+          "Apply beta-blocker title label",
+          "Apply too-many-prs label",
+        ].includes(step.name ?? ""),
+    )) {
+      expect(step.if).toContain(tokenCondition);
+    }
+  });
+
   it("routes PR edited metadata only to interested automation", () => {
     const autoResponse = readWorkflow(".github/workflows/auto-response.yml");
     const clawsweeperDispatch = readWorkflow(".github/workflows/clawsweeper-dispatch.yml");
