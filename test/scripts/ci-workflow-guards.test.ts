@@ -2164,14 +2164,9 @@ describe("ci workflow guards", () => {
     expect(maintainStep.run).toContain('PNPM_CONFIG_STORE_DIR="$store_dir" pnpm store prune');
     expect(maintainStep.run).toContain('>> "$GITHUB_STEP_SUMMARY"');
     const warmupCondition = workflow.jobs["pnpm-store-warmup"].if;
-    expect(warmupCondition).toContain("github.event_name == 'workflow_dispatch'");
-    expect(warmupCondition).toContain(
-      "github.event_name == 'pull_request' && (github.repository != 'openclaw/openclaw'",
+    expect(warmupCondition).toBe(
+      "${{ (needs.preflight.outputs.run_node == 'true' || needs.preflight.outputs.run_check_docs == 'true') && !(github.repository == 'openclaw/openclaw' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'openclaw/openclaw'))) }}",
     );
-    expect(warmupCondition).toContain(
-      "github.event.pull_request.head.repo.full_name != 'openclaw/openclaw'",
-    );
-    expect(warmupCondition).not.toContain("github.event_name == 'push'");
     // Current sticky consumers all use the single supported Node line. A
     // planner-provided version would silently create a writerless disk.
     for (const { jobName, stepWith } of stickyConsumers) {
